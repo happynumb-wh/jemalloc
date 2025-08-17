@@ -130,12 +130,21 @@ static int os_page_id(void *addr, size_t size, const char *name)
 static void os_pages_unmap(void *addr, size_t size);
 
 /******************************************************************************/
+static uint64_t *mmap_base = NULL;
 
-static void *
+#define PAGE_SIZE 0x1000
+void *
 os_pages_map(void *addr, size_t size, size_t alignment, bool *commit) {
 	assert(ALIGNMENT_ADDR2BASE(addr, os_page) == addr);
 	assert(ALIGNMENT_CEILING(size, os_page) == size);
 	assert(size != 0);
+
+	if (unlikely(mmap_base == NULL))
+	{
+		extern uint64_t _end;
+		uint64_t base = (uint64_t)&_end;
+		mmap_base = (base & ~(PAGE_SIZE - 1)) + PAGE_SIZE;
+	}
 
 	if (os_overcommits) {
 		*commit = true;
@@ -170,7 +179,10 @@ os_pages_map(void *addr, size_t size, size_t alignment, bool *commit) {
 #endif
 		int prot = *commit ? PAGES_PROT_COMMIT : PAGES_PROT_DECOMMIT;
 
-		ret = mmap(addr, size, prot, flags, PAGES_FD_TAG, 0);
+		// ret = mmap(addr, size, prot, flags, PAGES_FD_TAG, 0);
+		ret = mmap_base;
+		// printf("<jemalloc>: mmap_base: %p, size: %zu\n", mmap_base, size);
+		mmap_base = (void *)((uintptr_t)mmap_base + size);
 	}
 	assert(ret != NULL);
 
@@ -227,7 +239,7 @@ static void
 os_pages_unmap(void *addr, size_t size) {
 	assert(ALIGNMENT_ADDR2BASE(addr, os_page) == addr);
 	assert(ALIGNMENT_CEILING(size, os_page) == size);
-
+	return;
 #ifdef _WIN32
 	if (VirtualFree(addr, 0, MEM_RELEASE) == 0)
 #else
