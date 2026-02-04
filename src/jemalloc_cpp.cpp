@@ -24,14 +24,14 @@ extern "C" {
 //
 // ... but it needs to work with jemalloc namespaces.
 
-void	*operator new(std::size_t size);
-void	*operator new[](std::size_t size);
-void	*operator new(std::size_t size, const std::nothrow_t &) noexcept;
-void	*operator new[](std::size_t size, const std::nothrow_t &) noexcept;
-void	operator delete(void *ptr) noexcept;
-void	operator delete[](void *ptr) noexcept;
-void	operator delete(void *ptr, const std::nothrow_t &) noexcept;
-void	operator delete[](void *ptr, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	*operator new(std::size_t size);
+void __attribute__((weak))	*operator new[](std::size_t size);
+void __attribute__((weak))	*operator new(std::size_t size, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	*operator new[](std::size_t size, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	operator delete(void *ptr) noexcept;
+void __attribute__((weak))	operator delete[](void *ptr) noexcept;
+void __attribute__((weak))	operator delete(void *ptr, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	operator delete[](void *ptr, const std::nothrow_t &) noexcept;
 
 #if __cpp_sized_deallocation >= 201309
 /* C++14's sized-delete operators. */
@@ -41,16 +41,16 @@ void	operator delete[](void *ptr, std::size_t size) noexcept;
 
 #if __cpp_aligned_new >= 201606
 /* C++17's over-aligned operators. */
-void	*operator new(std::size_t size, std::align_val_t);
-void	*operator new(std::size_t size, std::align_val_t, const std::nothrow_t &) noexcept;
-void	*operator new[](std::size_t size, std::align_val_t);
-void	*operator new[](std::size_t size, std::align_val_t, const std::nothrow_t &) noexcept;
-void	operator delete(void* ptr, std::align_val_t) noexcept;
-void	operator delete(void* ptr, std::align_val_t, const std::nothrow_t &) noexcept;
-void	operator delete(void* ptr, std::size_t size, std::align_val_t al) noexcept;
-void	operator delete[](void* ptr, std::align_val_t) noexcept;
-void	operator delete[](void* ptr, std::align_val_t, const std::nothrow_t &) noexcept;
-void	operator delete[](void* ptr, std::size_t size, std::align_val_t al) noexcept;
+void __attribute__((weak))	*operator new(std::size_t size, std::align_val_t);
+void __attribute__((weak))	*operator new(std::size_t size, std::align_val_t, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	*operator new[](std::size_t size, std::align_val_t);
+void __attribute__((weak))	*operator new[](std::size_t size, std::align_val_t, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	operator delete(void* ptr, std::align_val_t) noexcept;
+void __attribute__((weak))	operator delete(void* ptr, std::align_val_t, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	operator delete(void* ptr, std::size_t size, std::align_val_t al) noexcept;
+void __attribute__((weak))	operator delete[](void* ptr, std::align_val_t) noexcept;
+void __attribute__((weak))	operator delete[](void* ptr, std::align_val_t, const std::nothrow_t &) noexcept;
+void __attribute__((weak))	operator delete[](void* ptr, std::size_t size, std::align_val_t al) noexcept;
 #endif
 
 JEMALLOC_NOINLINE
@@ -112,30 +112,34 @@ template <bool IsNoExcept>
 JEMALLOC_ALWAYS_INLINE
 void *
 newImpl(std::size_t size) noexcept(IsNoExcept) {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	LOG("core.operator_new.entry", "size: %zu", size);
 
 	void * ret = imalloc_fastpath(size, &fallbackNewImpl<IsNoExcept>);
 
 	LOG("core.operator_new.exit", "result: %p", ret);
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 	return ret;
 }
 
-void *
+void __attribute__((weak)) *
 operator new(std::size_t size) {
 	return newImpl<false>(size);
 }
 
-void *
+void __attribute__((weak)) *
 operator new[](std::size_t size) {
 	return newImpl<false>(size);
 }
 
-void *
+void __attribute__((weak)) *
 operator new(std::size_t size, const std::nothrow_t &) noexcept {
 	return newImpl<true>(size);
 }
 
-void *
+void __attribute__((weak)) *
 operator new[](std::size_t size, const std::nothrow_t &) noexcept {
 	return newImpl<true>(size);
 }
@@ -146,69 +150,82 @@ template <bool IsNoExcept>
 JEMALLOC_ALWAYS_INLINE
 void *
 alignedNewImpl(std::size_t size, std::align_val_t alignment) noexcept(IsNoExcept) {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	void *ptr = je_aligned_alloc(static_cast<std::size_t>(alignment), size);
 	if (likely(ptr != nullptr)) {
+		// __asm__ volatile("csrwi 0x400, 7\n\t");
 		return ptr;
 	}
 
 	return handleOOM(size, IsNoExcept);
 }
 
-void *
+void __attribute__((weak)) *
 operator new(std::size_t size, std::align_val_t alignment) {
 	return alignedNewImpl<false>(size, alignment);
 }
 
-void *
+void __attribute__((weak)) *
 operator new[](std::size_t size, std::align_val_t alignment) {
 	return alignedNewImpl<false>(size, alignment);
 }
 
-void *
+void __attribute__((weak)) *
 operator new(std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept {
 	return alignedNewImpl<true>(size, alignment);
 }
 
-void *
+void __attribute__((weak)) *
 operator new[](std::size_t size, std::align_val_t alignment, const std::nothrow_t &) noexcept {
 	return alignedNewImpl<true>(size, alignment);
 }
 
 #endif  // __cpp_aligned_new
 
-void
+void __attribute__((weak))
 operator delete(void *ptr) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete[](void *ptr) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete(void *ptr, const std::nothrow_t &) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 }
 
-void operator delete[](void *ptr, const std::nothrow_t &) noexcept {
+void __attribute__((weak)) operator delete[](void *ptr, const std::nothrow_t &) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
 #if __cpp_sized_deallocation >= 201309
@@ -226,14 +243,23 @@ sizedDeleteImpl(void* ptr, std::size_t size) noexcept {
 	LOG("core.operator_delete.exit", "");
 }
 
-void
+void __attribute__((weak))
 operator delete(void *ptr, std::size_t size) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	sizedDeleteImpl(ptr, size);
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 }
 
-void
+void __attribute__((weak))
 operator delete[](void *ptr, std::size_t size) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	sizedDeleteImpl(ptr, size);
+
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 }
 
 #endif  // __cpp_sized_deallocation
@@ -258,50 +284,64 @@ alignedSizedDeleteImpl(void* ptr, std::size_t size, std::align_val_t alignment)
 	LOG("core.operator_delete.exit", "");
 }
 
-void
+void __attribute__((weak))
 operator delete(void* ptr, std::align_val_t) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete[](void* ptr, std::align_val_t) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete(void* ptr, std::align_val_t, const std::nothrow_t&) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete[](void* ptr, std::align_val_t, const std::nothrow_t&) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	LOG("core.operator_delete.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
 
 	LOG("core.operator_delete.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete(void* ptr, std::size_t size, std::align_val_t alignment) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	alignedSizedDeleteImpl(ptr, size, alignment);
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
-void
+void __attribute__((weak))
 operator delete[](void* ptr, std::size_t size, std::align_val_t alignment) noexcept {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	alignedSizedDeleteImpl(ptr, size, alignment);
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 }
 
 #endif  // __cpp_aligned_new

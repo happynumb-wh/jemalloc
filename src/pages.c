@@ -68,6 +68,7 @@ static int madvise_dont_need_zeros_is_faulty = -1;
  */
 static int madvise_MADV_DONTNEED_zeroes_pages(void)
 {
+	return 1;
 	size_t size = PAGE;
 
 	void * addr = mmap(NULL, size, PROT_READ|PROT_WRITE,
@@ -130,7 +131,7 @@ static int os_page_id(void *addr, size_t size, const char *name)
 static void os_pages_unmap(void *addr, size_t size);
 
 /******************************************************************************/
-static uint64_t *mmap_base = NULL;
+uint64_t *hmtt_mmap_base = NULL;
 
 #define PAGE_SIZE 0x1000
 void *
@@ -139,11 +140,11 @@ os_pages_map(void *addr, size_t size, size_t alignment, bool *commit) {
 	assert(ALIGNMENT_CEILING(size, os_page) == size);
 	assert(size != 0);
 
-	if (unlikely(mmap_base == NULL))
+	if (unlikely(hmtt_mmap_base == NULL))
 	{
 		extern uint64_t _end;
 		uint64_t base = (uint64_t)&_end;
-		mmap_base = (base & ~(PAGE_SIZE - 1)) + PAGE_SIZE;
+		hmtt_mmap_base = (base & ~(PAGE_SIZE - 1)) + PAGE_SIZE;
 	}
 
 	if (os_overcommits) {
@@ -178,11 +179,11 @@ os_pages_map(void *addr, size_t size, size_t alignment, bool *commit) {
 		}
 #endif
 		int prot = *commit ? PAGES_PROT_COMMIT : PAGES_PROT_DECOMMIT;
-
+		hmtt_mmap_base = (uint64_t *)((uint64_t)hmtt_mmap_base & ~(PAGE_SIZE - 1)) + PAGE_SIZE;
 		// ret = mmap(addr, size, prot, flags, PAGES_FD_TAG, 0);
-		ret = mmap_base;
-		// printf("<jemalloc>: mmap_base: %p, size: %zu\n", mmap_base, size);
-		mmap_base = (void *)((uintptr_t)mmap_base + size);
+		ret = hmtt_mmap_base;
+		// printf("<jemalloc>: hmtt_mmap_base: %p, size: %zu\n", hmtt_mmap_base, size);
+		hmtt_mmap_base = (void *)((uintptr_t)hmtt_mmap_base + size);
 	}
 	assert(ret != NULL);
 

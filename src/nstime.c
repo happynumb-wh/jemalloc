@@ -8,6 +8,17 @@
 #define BILLION	UINT64_C(1000000000)
 #define MILLION	UINT64_C(1000000)
 
+
+static uint64_t pseudo_timer = 0xdeadbeef; 
+
+int pseudo_clock_gettime(int unused, struct timespec *ts) {
+	pseudo_timer += 1234567;
+	ts->tv_sec = pseudo_timer / BILLION;
+	ts->tv_nsec = pseudo_timer % BILLION;
+	return 0;
+}
+
+
 static void
 nstime_set_initialized(nstime_t *time) {
 #ifdef JEMALLOC_DEBUG
@@ -195,7 +206,7 @@ static void
 nstime_get(nstime_t *time) {
 	struct timespec ts;
 
-	clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
+	pseudo_clock_gettime(CLOCK_MONOTONIC_COARSE, &ts);
 	nstime_init2(time, ts.tv_sec, ts.tv_nsec);
 }
 #elif defined(JEMALLOC_HAVE_CLOCK_MONOTONIC)
@@ -204,7 +215,7 @@ static void
 nstime_get(nstime_t *time) {
 	struct timespec ts;
 
-	clock_gettime(CLOCK_MONOTONIC, &ts);
+	pseudo_clock_gettime(CLOCK_MONOTONIC, &ts);
 	nstime_init2(time, ts.tv_sec, ts.tv_nsec);
 }
 #elif defined(JEMALLOC_HAVE_CLOCK_GETTIME_NSEC_NP)
@@ -256,7 +267,7 @@ nstime_get_realtime(nstime_t *time) {
 #if defined(JEMALLOC_HAVE_CLOCK_REALTIME) && !defined(_WIN32)
 	struct timespec ts;
 
-	clock_gettime(CLOCK_REALTIME, &ts);
+	pseudo_clock_gettime(CLOCK_REALTIME, &ts);
 	nstime_init2(time, ts.tv_sec, ts.tv_nsec);
 #else
 	unreachable();

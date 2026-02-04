@@ -25,6 +25,32 @@
 #include "jemalloc/internal/thread_event.h"
 #include "jemalloc/internal/util.h"
 
+
+#define HMTTCFG 0x400
+#define HMTTINSTRS 0x401
+#define HMTTLOADINSTRS 0x402
+#define HMTTSTOREINSTRS 0x403
+
+
+#define csr_read(csr)                                           \
+	({                                                      \
+		register unsigned long __v;                     \
+		// __asm__ __volatile__("csrr %0, " __ASM_STR(csr) \
+				     : "=r"(__v)                \
+				     :                          \
+				     : "memory");               \
+		__v;                                            \
+	})
+
+#define csr_write(csr, val)                                        \
+	({                                                         \
+		unsigned long __v = (unsigned long)(val);          \
+		// __asm__ __volatile__("csrw " __ASM_STR(csr) ", %0" \
+				     :                             \
+				     : "rK"(__v)                   \
+				     : "memory");                  \
+	})
+
 /******************************************************************************/
 /* Data. */
 
@@ -2821,11 +2847,12 @@ JEMALLOC_EXPORT JEMALLOC_ALLOCATOR JEMALLOC_RESTRICT_RETURN
 void JEMALLOC_NOTHROW *
 JEMALLOC_ATTR(malloc) JEMALLOC_ALLOC_SIZE(1)
 je_malloc(size_t size) {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	LOG("core.malloc.entry", "size: %zu", size);
-
 	void * ret = imalloc_fastpath(size, &malloc_default);
-
+	// fprintf(stderr, "malloc size: %zu, ret: %p\n", size, ret);
 	LOG("core.malloc.exit", "result: %p", ret);
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 	return ret;
 }
 
@@ -2913,6 +2940,8 @@ JEMALLOC_EXPORT JEMALLOC_ALLOCATOR JEMALLOC_RESTRICT_RETURN
 void JEMALLOC_NOTHROW *
 JEMALLOC_ATTR(malloc) JEMALLOC_ALLOC_SIZE2(1, 2)
 je_calloc(size_t num, size_t size) {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	void *ret;
 	static_opts_t sopts;
 	dynamic_opts_t dopts;
@@ -2937,8 +2966,9 @@ je_calloc(size_t num, size_t size) {
 		uintptr_t args[3] = {(uintptr_t)num, (uintptr_t)size};
 		hook_invoke_alloc(hook_alloc_calloc, ret, (uintptr_t)ret, args);
 	}
-
+	// fprintf(stderr, "calloc num: %zu, size: %zu, ret: %p\n", num, size, ret);
 	LOG("core.calloc.exit", "result: %p", ret);
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
 
 	return ret;
 }
@@ -3093,11 +3123,15 @@ free_default(void *ptr) {
 
 JEMALLOC_EXPORT void JEMALLOC_NOTHROW
 je_free(void *ptr) {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
+
 	LOG("core.free.entry", "ptr: %p", ptr);
 
 	je_free_impl(ptr);
-
+	// fprintf(stderr, "free ptr: %p\n", ptr);
 	LOG("core.free.exit", "");
+	// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 }
 
 JEMALLOC_EXPORT void JEMALLOC_NOTHROW
@@ -3634,15 +3668,20 @@ JEMALLOC_EXPORT JEMALLOC_ALLOCATOR JEMALLOC_RESTRICT_RETURN
 void JEMALLOC_NOTHROW *
 JEMALLOC_ALLOC_SIZE(2)
 je_realloc(void *ptr, size_t size) {
+	// __asm__ volatile("csrwi 0x400, 0\n\t");
 	LOG("core.realloc.entry", "ptr: %p, size: %zu\n", ptr, size);
 
 	if (likely(ptr != NULL && size != 0)) {
 		void *ret = do_rallocx(ptr, size, 0, true);
 		LOG("core.realloc.exit", "result: %p", ret);
+		// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 		return ret;
 	} else if (ptr != NULL && size == 0) {
 		void *ret = do_realloc_nonnull_zero(ptr);
 		LOG("core.realloc.exit", "result: %p", ret);
+		// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 		return ret;
 	} else {
 		/* realloc(NULL, size) is equivalent to malloc(size). */
@@ -3670,6 +3709,8 @@ je_realloc(void *ptr, size_t size) {
 			    (uintptr_t)ret, args);
 		}
 		LOG("core.realloc.exit", "result: %p", ret);
+		// __asm__ volatile("csrwi 0x400, 7\n\t");
+
 		return ret;
 	}
 }
